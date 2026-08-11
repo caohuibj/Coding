@@ -102,26 +102,27 @@ def write_text(path: Path, content: str, dry_run: bool) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def copy_managed_tree(
-    source: Path,
-    target: Path,
-    *,
-    replace: bool,
-    dry_run: bool,
-    conflicts: list[str],
-) -> None:
+def find_tree_conflicts(source: Path, target: Path) -> list[str]:
+    conflicts: list[str] = []
     for src in sorted(source.rglob("*")):
         if not src.is_file():
             continue
-        rel = src.relative_to(source)
-        dst = target / rel
+        dst = target / src.relative_to(source)
+        if dst.exists() and dst.read_bytes() != src.read_bytes():
+            conflicts.append(str(dst))
+    return conflicts
+
+
+def copy_managed_tree(source: Path, target: Path, *, replace: bool, dry_run: bool) -> None:
+    for src in sorted(source.rglob("*")):
+        if not src.is_file():
+            continue
+        dst = target / src.relative_to(source)
         content = src.read_bytes()
-        if dst.exists():
-            if dst.read_bytes() == content:
-                continue
-            if not replace:
-                conflicts.append(str(dst))
-                continue
+        if dst.exists() and dst.read_bytes() == content:
+            continue
+        if dst.exists() and not replace:
+            raise RuntimeError(f"Unexpected post-preflight conflict: {dst}")
         if dry_run:
             print(f"DRY-RUN copy {src} -> {dst}")
             continue
@@ -262,11 +263,7 @@ def merge_codex_config(target: Path, *, enforce: bool, dry_run: bool) -> list[st
         write_text(path, (SOURCE_ROOT / ".codex" / "config.toml").read_text(encoding="utf-8"), dry_run)
         return warnings
 
-    try:
-        data = load_toml(path)
-    except Exception as exc:
-        raise RuntimeError(f"Cannot safely merge invalid TOML at {path}: {exc}") from exc
-
+    data = load_toml(path)
     lines = path.read_text(encoding="utf-8").splitlines()
     for section, key, wanted in desired:
         current_container = data if section is None else data.get(section, {})
@@ -281,7 +278,6 @@ def merge_codex_config(target: Path, *, enforce: bool, dry_run: bool) -> list[st
 
     merged = "\n".join(lines).rstrip() + "\n"
     if not dry_run:
-        # Validate before replacing the target file.
         temp = path.with_suffix(path.suffix + ".agent-team-tmp")
         temp.parent.mkdir(parents=True, exist_ok=True)
         temp.write_text(merged, encoding="utf-8")
@@ -293,26 +289,65 @@ def merge_codex_config(target: Path, *, enforce: bool, dry_run: bool) -> list[st
     return warnings
 
 
+def preflight_install(target: Path, *, replace: bool, with_docs: bool) -> list[str]:
+    errors: list[str] = []
+
+    if not replace:
+        errors.extend(find_tree_conflicts(SOURCE_ROOT / ".agents" / "skills", target / ".agents" / "skills"))
+        errors.extend(find_tree_conflicts(SOURCE_ROOT / ".codex" / "agents", target / ".codex" / "agents"))
+        if with_docs:
+            src = SOURCE_ROOT / "docs" / "agent" / "architecture.md"
+            dst = target / "docs" / "agent" / "coding-agent-team.md"
+            if dst.exists() and dst.read_bytes() != src.read_bytes():
+                errors.append(str(dst))
+
+    config = target / ".codex" / "config.toml"
+    if config.exists():
+        try:
+            load_toml(config)
+        except Exception as exc:
+            errors.append(f"{config} is invalid TOML: {exc}")
+
+    agents_md = target / "AGENTS.md"
+    if agents_md.exists():
+        text = agents_md.read_text(encoding="utf-8", errors="ignore")
+        has_start = START_MARKER in text
+        has_end = END_MARKER in text
+        if has_start != has_end:
+            errors.append(f"{agents_md} contains only one agent-team marker; repair the managed block before installing")
+
+    return errors
+
+
+def print_preflight_errors(errors: list[str]) -> None:
+    print("Installation preflight failed; no files were written:", file=sys.stderr)
+    for error in errors:
+        print(f"  - {error}", file=sys.stderr)
+    print("Resolve the conflicts, or use --replace-managed-files only for paths this toolkit should intentionally own.", file=sys.stderr)
+
+
 def install(args: argparse.Namespace) -> int:
     target = Path(args.target).resolve()
     if not target.exists() or not target.is_dir():
         print(f"Target directory does not exist: {target}", file=sys.stderr)
         return 2
 
-    conflicts: list[str] = []
+    preflight_errors = preflight_install(target, replace=args.replace_managed_files, with_docs=args.with_docs)
+    if preflight_errors:
+        print_preflight_errors(preflight_errors)
+        return 1
+
     copy_managed_tree(
         SOURCE_ROOT / ".agents" / "skills",
         target / ".agents" / "skills",
         replace=args.replace_managed_files,
         dry_run=args.dry_run,
-        conflicts=conflicts,
     )
     copy_managed_tree(
         SOURCE_ROOT / ".codex" / "agents",
         target / ".codex" / "agents",
         replace=args.replace_managed_files,
         dry_run=args.dry_run,
-        conflicts=conflicts,
     )
 
     warnings = merge_codex_config(target, enforce=args.enforce_config, dry_run=args.dry_run)
@@ -321,11 +356,9 @@ def install(args: argparse.Namespace) -> int:
     merge_gitignore(target, args.dry_run)
 
     if args.with_docs:
-        doc_target = target / "docs" / "agent" / "coding-agent-team.md"
         source_doc = SOURCE_ROOT / "docs" / "agent" / "architecture.md"
-        if doc_target.exists() and doc_target.read_bytes() != source_doc.read_bytes() and not args.replace_managed_files:
-            conflicts.append(str(doc_target))
-        elif args.dry_run:
+        doc_target = target / "docs" / "agent" / "coding-agent-team.md"
+        if args.dry_run:
             print(f"DRY-RUN copy {source_doc} -> {doc_target}")
         else:
             doc_target.parent.mkdir(parents=True, exist_ok=True)
@@ -333,12 +366,6 @@ def install(args: argparse.Namespace) -> int:
 
     for warning in warnings:
         print(f"WARN: {warning}")
-    if conflicts:
-        print("\nConflicting target files were left untouched:", file=sys.stderr)
-        for conflict in conflicts:
-            print(f"  - {conflict}", file=sys.stderr)
-        print("Inspect them first. Re-run with --replace-managed-files only for files you intentionally want this toolkit to own.", file=sys.stderr)
-        return 1
 
     verb = "Would install" if args.dry_run else "Installed"
     print(f"{verb} coding agent team into {target}")
@@ -390,7 +417,7 @@ def doctor(args: argparse.Namespace) -> int:
             check(isinstance(agents_cfg, dict) and agents_cfg.get("enabled") is True, "multi-agent is enabled")
             cap = agents_cfg.get("max_concurrent_threads_per_session") if isinstance(agents_cfg, dict) else None
             check(isinstance(cap, int) and 1 <= cap <= 4, "spawned-agent hard cap is <= 4")
-            if isinstance(cap, int) and cap < 4:
+            if isinstance(cap, int) and 1 <= cap < 4:
                 warnings.append(f"spawned-agent hard cap is {cap}; safe but lower than the V1 default of 4")
         except Exception as exc:
             failures.append(f".codex/config.toml parses correctly: {exc}")

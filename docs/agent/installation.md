@@ -18,10 +18,12 @@ python3 scripts/agent_team.py install /path/to/project --with-docs
 python3 scripts/agent_team.py doctor /path/to/project
 ```
 
+The installer performs a full preflight before writing. If a protected agent/skill/doc path conflicts, the target Codex TOML is invalid, or the managed `AGENTS.md` markers are malformed, installation exits without writing any files.
+
 The default install is conservative:
 
 - `.agents/skills/` and `.codex/agents/` are copied only when the destination file is absent or identical;
-- conflicting agent/skill files are left untouched and the installer exits non-zero;
+- conflicting agent/skill files are left untouched;
 - existing `.codex/config.toml` is merged rather than replaced;
 - existing Codex model/agent keys with different values are preserved and reported unless `--enforce-config` is explicitly supplied;
 - an existing `AGENTS.md` is preserved and a marker-delimited managed section is appended or refreshed;
