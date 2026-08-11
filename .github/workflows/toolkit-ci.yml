@@ -1,0 +1,68 @@
+name: toolkit-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-toolkit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Compile installer
+        run: python -m py_compile scripts/agent_team.py
+
+      - name: Doctor toolkit repository
+        run: python scripts/agent_team.py doctor .
+
+      - name: Install into a temporary project
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(mktemp -d)"
+          git -C "$target" init -q
+          cat > "$target/package.json" <<'JSON'
+          {
+            "name": "agent-team-smoke",
+            "private": true,
+            "scripts": {
+              "typecheck": "echo typecheck",
+              "lint": "echo lint",
+              "test": "echo test",
+              "build": "echo build"
+            }
+          }
+          JSON
+          printf '# Existing project rules\n\nKeep this content.\n' > "$target/AGENTS.md"
+
+          python scripts/agent_team.py install "$target" --with-docs --enforce-config
+          python scripts/agent_team.py doctor "$target"
+          grep -q 'Keep this content.' "$target/AGENTS.md"
+          grep -q 'npm run test' "$target/AGENTS.md"
+          python scripts/agent_team.py install "$target" --dry-run --with-docs --enforce-config
+
+      - name: Conflict preflight performs zero writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(mktemp -d)"
+          git -C "$target" init -q
+          mkdir -p "$target/.codex/agents"
+          printf 'conflicting user file\n' > "$target/.codex/agents/luna-fast.toml"
+
+          set +e
+          python scripts/agent_team.py install "$target" --enforce-config
+          status=$?
+          set -e
+
+          test "$status" -eq 1
+          test ! -e "$target/.agents"
+          test ! -e "$target/AGENTS.md"
+          test ! -e "$target/.codex/config.toml"
