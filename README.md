@@ -41,6 +41,20 @@ Use for medium/high complexity, ambiguity, cross-module/architecture work, depen
 8. **Parallelize only independent work.** Concurrent writers require stable interfaces, non-overlapping write scope, and isolated worktrees; otherwise serialize.
 9. **Verification is proportional.** Run checks relevant to changed behavior and risk, not ceremony.
 
+## Install into an existing project
+
+The included installer performs a conservative merge and never touches global Codex configuration.
+
+```bash
+python3 scripts/agent_team.py install /path/to/project --dry-run --with-docs
+python3 scripts/agent_team.py install /path/to/project --with-docs
+python3 scripts/agent_team.py doctor /path/to/project
+```
+
+Existing `AGENTS.md` and `.codex/config.toml` are merged rather than blindly replaced. Conflicting agent/skill files are left untouched unless replacement is explicitly requested. The installer also discovers explicit package/Make validation commands without inventing missing commands.
+
+See `docs/agent/installation.md` for merge/upgrade behavior and `docs/agent/smoke-tests.md` for the pilot acceptance checklist.
+
 ## Repository layout
 
 ```text
@@ -61,9 +75,15 @@ AGENTS.md
     systematic-debugging/
     verification-gate/
     code-review/
+scripts/
+  agent_team.py
+templates/
+  agent-team-section.md
 docs/
   agent/
     architecture.md
+    installation.md
+    smoke-tests.md
 ```
 
 All configuration is repository-scoped. Nothing in this project requires changes under `~/.codex` or `$HOME/.agents`.
