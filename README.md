@@ -14,6 +14,24 @@ A repository-scoped Codex workflow for building software with one strong lead mo
 
 The workflow combines Superpowers-style engineering discipline with Codex subagents, while keeping agent roles narrow and project-scoped.
 
+## GitHub-first delivery
+
+GitHub is the system of record for development. Issues define work, branches contain implementation, pull requests carry review context, and GitHub Actions provides the deterministic quality gate. Local clones are downstream working copies that can be synchronized after changes are merged.
+
+```text
+Issue / explicit task
+  -> risk + complexity routing
+  -> fast lane or managed lane
+  -> implementation branch
+  -> pull request
+  -> GitHub Actions
+  -> Sol review
+  -> merge
+  -> local sync when needed
+```
+
+Use the structured issue forms under `.github/ISSUE_TEMPLATE/` and the pull-request template to preserve the handoff contract across GitHub-native work.
+
 ## Routing
 
 ### Fast lane
@@ -59,11 +77,22 @@ AGENTS.md
     systematic-debugging/
     verification-gate/
     code-review/
+.github/
+  ISSUE_TEMPLATE/
+  workflows/
+  pull_request_template.md
+scripts/
+  validate_agent_framework.py
 docs/
   agent/
     architecture.md
+    github-workflow.md
 ```
+
+## GitHub Actions
+
+`Agent framework checks` runs on pull requests and pushes to `main`. It validates repository contracts, parses project-scoped Codex TOML configuration, and checks skill frontmatter before changes are merged.
 
 All configuration is repository-scoped. Nothing in this project requires changes under `~/.codex` or `$HOME/.agents`.
 
-See `docs/agent/architecture.md` for the full workflow.
+See `docs/agent/architecture.md` for the agent architecture and `docs/agent/github-workflow.md` for the GitHub execution workflow.

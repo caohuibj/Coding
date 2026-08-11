@@ -1,0 +1,53 @@
+name: Bug report
+description: Capture reproducible evidence for a defect and regression test.
+title: "fix: "
+labels: []
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest reproducible sequence, inputs, or failing check.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Include relevant logs, error output, screenshots, or code locations without secrets.
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: regression
+    attributes:
+      label: Regression-test expectation
+      description: What deterministic check should fail before the fix and pass after it?

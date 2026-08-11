@@ -1,0 +1,67 @@
+name: Feature request
+description: Define a feature with enough context for agent routing and implementation.
+title: "feat: "
+labels: []
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What observable user or system outcome should this work deliver?
+      placeholder: Describe the desired outcome, not only the implementation idea.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why is this needed, and what repository or product context matters?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List objectively verifiable conditions for success.
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Expected complexity
+      options:
+        - Low
+        - Medium
+        - High
+        - Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Expected risk
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: What adjacent work should explicitly remain outside this change?
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation expectations
+      description: What tests or checks should establish that the feature works?
