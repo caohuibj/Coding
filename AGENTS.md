@@ -2,64 +2,38 @@
 
 ## Purpose
 
-Use a Sol-led, Luna-executed workflow for software engineering. Keep all agent configuration and skills repository-scoped.
+Use a repository-scoped Sol-led, Luna-executed workflow. Keep the primary reasoning authority with Sol and delegate bounded execution to ephemeral Luna agents.
 
-## Model roles
+## Roles and routing
 
-- The primary lead is GPT-5.6 Sol at `high`.
-- For a simple, bounded, non-critical task, skip Sol design and delegate directly to `luna_fast` (Luna `max`). Sol still performs final review.
-- For complex, ambiguous, cross-module, dependency-heavy, or high-risk work, use the managed lane: Sol designs and plans; `luna_explorer` gathers read-only evidence; `luna_worker` implements bounded tasks.
-- Use `critical_reviewer` (Sol `xhigh`) for critical-risk review.
-- Do not route any V1 workflow to Sol `max`.
+- Primary lead: GPT-5.6 Sol at `high`.
+- Fast lane: `luna_fast` (Luna `max`) for low-complexity, bounded low/medium-risk work that follows established patterns. Low-complexity high-risk work requires an explicit Sol admission decision. Critical risk never uses the fast lane.
+- Managed lane: Sol designs/plans; `luna_explorer` gathers read-only evidence; `luna_worker` implements bounded Task Briefs.
+- Normal review: Sol `high`.
+- Critical-risk review: `critical_reviewer` using Sol `xhigh`.
+- V1 does not route work to Sol `max`.
 
-## Engineering contract
+## Authority and engineering principles
 
-Implement the **minimum sufficient design**.
+Sol owns product/architecture decisions, task decomposition, integration, review, escalation, and `DONE` status. Luna workers may make local implementation choices inside their delegated contract but must not redesign system architecture.
 
-Prefer:
-- existing repository patterns;
-- direct, readable code;
-- explicit behavior and strong types;
-- narrow changes with clear ownership;
-- root-cause fixes.
+Implement the **minimum sufficient design**. Reuse existing repository patterns and abstractions before creating new ones. Create new abstraction only for a current requirement, real variation point, policy boundary, or meaningful repeated concept. Do not future-proof speculatively.
 
-Avoid unless a current requirement justifies them:
-- speculative abstractions or future-proofing;
-- new architectural layers;
-- redundant validation across trusted internal layers;
-- broad `try/catch` blocks that hide failures;
-- silent fallbacks for invalid required configuration;
-- trivial wrappers and one-use helpers without semantic value;
-- unnecessary dependencies or configuration;
-- unrelated refactors;
-- comments that merely restate the code.
-
-**Defend at trust boundaries; trust validated internal invariants.**
-Validate user input, network/external API data, filesystem data, webhooks, security boundaries, and other untrusted inputs. Do not repeatedly revalidate the same invariant after a trusted boundary has established it.
-
-Reuse existing abstractions aggressively. Create new abstractions conservatively, only when there is a real current variation point, policy boundary, or repeated behavior that benefits from a named concept.
+**Defend at trust boundaries; trust validated internal invariants.** Avoid redundant validation, broad error catches, silent success-shaped fallbacks, trivial wrappers, unnecessary dependencies/configuration, unrelated refactors, and comments that restate code.
 
 ## Workflow invariants
 
-- Simple tasks use the fast lane only when scope is clear and risk is below critical.
-- Managed work requires a Task DAG and bounded Task Briefs before writer agents are spawned.
-- A Task Brief must pass its quality gate before delegation.
-- Sol compiles worker-specific context; do not forward the full conversation or full plan to every worker.
-- Luna workers may make local implementation choices but must not redesign system architecture.
-- A Luna validation failure permits one evidence-based focused repair. If revalidation still fails, stop and escalate to Sol.
-- Workers return `READY_FOR_REVIEW`, never `DONE`.
-- Only Sol may mark a task `DONE` after review and fresh verification evidence.
-- Use proportional verification: targeted checks for low-risk changes; stronger integration/negative-path checks for high-risk changes.
-- Concurrent writers are capped at 3 and must have no unresolved dependency, no overlapping write scope, and stable interfaces.
-- Read-only explorers are capped at 4.
-- When two or more writer agents run concurrently, use isolated worktrees by default.
+- Managed work uses a Task DAG and quality-gated bounded Task Briefs.
+- Sol compiles task-local context rather than forwarding full conversations/plans.
+- One Task Brief uses one fresh `luna_worker`; close it after `READY_FOR_REVIEW` or `ESCALATED`.
+- One exploration question uses a fresh `luna_explorer`; close it after evidence is returned unless a tightly scoped follow-up is required.
+- A Luna validation failure permits exactly one evidence-based focused repair. A second failure escalates to Sol.
+- Workers return `READY_FOR_REVIEW`, never `DONE`. Sol marks `DONE` only after review and fresh proportional verification.
+- Implementation parallelism is conservative. If two or more writers run concurrently, each must use an isolated worktree. If isolation is unavailable, serialize writers.
+- Global spawned-agent hard cap is 4; workflow policy still limits writers to 3 and explorers to 4.
 
-## Risk and review
+Detailed routing, risk, verification, worktree, and task-state rules live in `.agents/skills/` and their `references/` files; do not duplicate them here.
 
-- `low`, `medium`, `high`: normal review by Sol `high`.
-- `critical`: adversarial review by `critical_reviewer` using Sol `xhigh`.
-- Critical examples include authentication/authorization, payment or financial calculations, destructive migrations or data operations, security boundaries, secret handling, concurrency with integrity risk, and irreversible operations.
+## Project commands
 
-## Project-specific commands
-
-This repository currently contains the agent workflow scaffold rather than an application. When application code is added, record canonical build, test, lint, typecheck, and integration commands here or in the nearest nested `AGENTS.md`. Do not invent commands that the repository does not define.
+This repository currently contains the workflow scaffold rather than an application. When application code is added, record canonical build, test, lint, typecheck, and integration commands here or in the nearest nested `AGENTS.md`. Do not invent commands the repository does not define.

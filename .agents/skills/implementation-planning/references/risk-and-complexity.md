@@ -5,7 +5,7 @@ Risk and complexity are separate axes.
 ## Complexity
 
 ### Low
-Clear objective, local scope, existing pattern, stable interfaces, no architecture decision.
+Clear objective, local scope, existing pattern, stable interfaces, no system-level architecture decision.
 
 ### Medium
 Multiple files or components, some coordination, but architecture and interfaces are largely known.
@@ -32,8 +32,8 @@ Authentication/authorization, payment or financial calculations, destructive mig
 | Complexity | Risk | Route |
 |---|---|---|
 | Low | Low/Medium | Fast lane: `luna_fast` -> Sol High review |
-| Low | High | Sol High decides whether fast lane remains safe; prefer managed lane if invariants are non-trivial |
+| Low | High | Sol High admission gate. Use fast lane only when scope, invariants, and failure modes remain simple; otherwise managed lane |
 | Any | Critical | Managed lane + `critical_reviewer` Sol XHigh |
-| Medium/High | Any | Managed lane |
+| Medium/High | Low/Medium/High | Managed lane |
 
-Critical risk always overrides low complexity.
+Critical risk always overrides low complexity. High risk never enters the fast lane automatically.
